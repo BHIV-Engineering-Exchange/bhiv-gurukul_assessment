@@ -4,6 +4,7 @@ import { supabase, SUPABASE_TABLE } from "../lib/supabaseClient";
 import { useNavigate, Link } from "react-router-dom";
 import DynamicForm from "../components/DynamicForm";
 import { FormConfigService } from "../lib/formConfigService";
+import { sendSampadaHandoff } from "../lib/sampadaHandoff";
 import { ArrowLeft } from 'lucide-react';
 import { useI18n } from "../lib/i18n";
 import toast from 'react-hot-toast';
@@ -203,6 +204,27 @@ function Intake() {
           ? "Your profile has been updated!"
           : "Your assessment has been submitted!"
       );
+
+      // Abhiruchi -> Sampada handoff (BHIV vNEXT step 1). Idempotent on the
+      // Clerk user id, so edits re-send safely without duplicating candidates.
+      // Fire-and-report: never blocks or fails the candidate's own save.
+      sendSampadaHandoff({
+        userId: user.id,
+        email: submissionData.email,
+        formData: submissionData.responses,
+      })
+        .then((r) => {
+          if (r?.ok) {
+            console.log(
+              "[Sampada handoff] accepted:",
+              r.sampada_local_id || r.detail,
+              r.warnings?.length ? r.warnings : ""
+            );
+          } else {
+            console.warn("[Sampada handoff] not delivered:", r?.detail);
+          }
+        })
+        .catch((err) => console.warn("[Sampada handoff] error:", err));
 
       // Navigate to assignment page after short delay
       setTimeout(() => {

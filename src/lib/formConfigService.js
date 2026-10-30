@@ -13,6 +13,55 @@ export const FIELD_TYPES = {
   MULTI_SELECT: "multi_select",
 };
 
+// Student self-classification (BHIV vNEXT — Sir's directive): the candidate
+// picks their institute and campus in the intake form itself. Institute
+// VALUES are exactly the agreed BHIV codes, so the Sampada handoff maps them
+// 1:1 (MSSU is canonical for RTMSSU). Campus values are ordinary labels
+// (stored as free text downstream) — seeded with the campuses named by the
+// programme and extendable by admins in the form builder.
+export const IDENTITY_FIELDS = [
+  {
+    id: "institute",
+    type: FIELD_TYPES.SELECT,
+    label: "Institute / University",
+    placeholder: "Select your institute",
+    required: true,
+    order: 5.5,
+    section: "academic_info",
+    options: [
+      { value: "MSSU", label: "RTMSSU (MSSU)" },
+      { value: "DYP-A", label: "DYP-A" },
+      { value: "SIT-S", label: "SIT-S" },
+      { value: "SIPS-S", label: "SIPS-S" },
+      { value: "VJTI", label: "VJTI" },
+    ],
+  },
+  {
+    id: "campus",
+    type: FIELD_TYPES.SELECT,
+    label: "Campus",
+    placeholder: "Select your campus",
+    required: false,
+    order: 5.7,
+    section: "academic_info",
+    options: [
+      { value: "Kharghar", label: "Kharghar" },
+      { value: "Pune", label: "Pune" },
+    ],
+  },
+];
+
+/** Ensure the institute + campus dropdowns exist in any active form config. */
+export function injectIdentityFields(fields) {
+  const list = Array.isArray(fields) ? fields : [];
+  for (const field of IDENTITY_FIELDS) {
+    if (!list.some((f) => f.id === field.id)) {
+      list.push({ ...field, options: field.options.map((o) => ({ ...o })) });
+    }
+  }
+  return list;
+}
+
 // Default form configuration that matches current intake form
 export const DEFAULT_FORM_CONFIG = {
   id: "default",
@@ -297,6 +346,9 @@ export class FormConfigService {
         });
       }
 
+      // Inject institute + campus (student self-classification) if missing
+      injectIdentityFields(data.fields);
+
       // Update field_of_study options with dynamic fields if it exists
       {
         const fieldOfStudyField = data.fields.find(f => f.id === 'field_of_study');
@@ -332,7 +384,10 @@ export class FormConfigService {
         return field;
       })
     };
-    
+
+    // Student self-classification dropdowns on the default config too
+    injectIdentityFields(config.fields);
+
     return config;
   }
 
